@@ -1,0 +1,524 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  // output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                   String     @id @default(uuid())
+  firstName            String     @map("first_name")
+  lastName             String     @map("last_name")
+  email                String     @unique
+  phone                String     @unique
+  password             String
+  role                 UserRole   @default(STUDENT)
+  status               UserStatus @default(ACTIVE)
+  resetPasswordToken   String?    @map("reset_password_token")
+  resetPasswordExpires DateTime?  @map("reset_password_expires")
+  emailVerified        Boolean    @default(false) @map("email_verified")
+  createdAt            DateTime   @default(now()) @map("created_at")
+  updatedAt            DateTime   @updatedAt @map("updated_at")
+
+  studentProfile StudentProfile?
+  managerProfile ManagerProfile?
+  guestProfile   GuestProfile?
+
+  hostels            Hostel[]            @relation("HostelOwner")
+  bookings           Booking[]           @relation("StudentBookings")
+  complaints         Complaint[]         @relation("ComplaintAuthor")
+  complaintResponses ComplaintResponse[] @relation("ResponseAuthor")
+  notifications      Notification[]
+  sentNotifications  Notification[]      @relation("NotificationSender")
+  reviews            Review[]            @relation("StudentReviews")
+  savedHostels       SavedHostel[]       @relation("StudentSavedHostels")
+
+  @@map("users")
+}
+
+model StudentProfile {
+  id               String   @id @default(uuid())
+  userId           String   @unique @map("user_id")
+  studentId        String   @unique @map("student_id")
+  programme        String?
+  level            Int?
+  academicYear     String?  @map("academic_year")
+  emergencyContact String?  @map("emergency_contact")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("student_profiles")
+}
+
+model ManagerProfile {
+  id                 String             @id @default(uuid())
+  userId             String             @unique @map("user_id")
+  businessName       String?            @map("business_name")
+  idType             String             @default("ghana_card") @map("id_type")
+  idNumber           String             @map("id_number")
+  idImage            String             @map("id_image")
+  verified           Boolean            @default(false)
+  verifiedAt         DateTime?          @map("verified_at")
+  verifiedBy         String?            @map("verified_by")
+  rejectionReason    String?            @map("rejection_reason")
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("manager_profiles")
+}
+
+model GuestProfile {
+  id        String    @id @default(uuid())
+  userId    String    @unique @map("user_id")
+  guestType GuestType @map("guest_type")
+
+  beneficiaryName  String? @map("beneficiary_name")
+  beneficiaryPhone String? @map("beneficiary_phone")
+  beneficiaryEmail String? @map("beneficiary_email")
+  relationshipType String? @map("relationship_type") 
+
+  staffId    String? @map("staff_id")
+  department String?
+
+  admissionNumber    String?   @map("admission_number")
+  expectedMatricDate DateTime? @map("expected_matric_date")
+  programmeAdmitted  String?   @map("programme_admitted")
+
+  purpose      String?
+  organization String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("guest_profiles")
+}
+
+model Hostel {
+  id               String       @id @default(uuid())
+  name             String
+  slug             String       @unique
+  description      String
+  address          String
+  distanceToCampus Float?       @map("distance_to_campus")
+  status           HostelStatus @default(PENDING)
+  managerId        String       @map("manager_id")
+  rejectionReason  String?      @map("rejection_reason")
+
+  totalRooms           Int           @map("total_rooms")
+  pricingPeriod        PricingPeriod @map("pricing_period")
+  allowSemesterPayment Boolean       @default(true) @map("allow_semester_payment")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  manager       User                 @relation("HostelOwner", fields: [managerId], references: [id], onDelete: Cascade)
+  facilities    HostelFacility[]
+  images        HostelImage[]
+  roomTypes     RoomType[]
+  bookings      Booking[]
+  complaints    Complaint[]
+  paymentDetail HostelPaymentDetail?
+  reviews       Review[]
+  savedBy       SavedHostel[]        @relation("SavedByStudents")
+
+  @@index([status])
+  @@index([managerId])
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@map("hostels")
+}
+
+model HostelPaymentDetail {
+  id             String   @id @default(uuid())
+  hostelId       String   @unique @map("hostel_id")
+  accountName    String   @map("account_name")
+  momoNumber     String   @map("momo_number")
+  momoProvider   String   @default("MTN") @map("momo_provider")
+  alternatePhone String?  @map("alternate_phone")
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  hostel Hostel @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+
+  @@map("hostel_payment_details")
+}
+
+model HostelFacility {
+  id        String   @id @default(uuid())
+  hostelId  String   @map("hostel_id")
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  hostel Hostel @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+
+  @@index([hostelId])
+  @@map("hostel_facilities")
+}
+
+model HostelImage {
+  id        String   @id @default(uuid())
+  hostelId  String   @map("hostel_id")
+  url       String
+  publicId  String?  @map("public_id")
+  isPrimary Boolean  @default(false) @map("is_primary")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  hostel Hostel @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+
+  @@index([hostelId])
+  @@map("hostel_images")
+}
+
+model RoomType {
+  id             String        @id @default(uuid())
+  hostelId       String        @map("hostel_id")
+  occupancyType  OccupancyType @map("occupancy_type")
+  pricePerPerson Decimal       @map("price_per_person") @db.Decimal(10, 2)
+
+  totalRooms     Int @map("total_rooms")
+  availableRooms Int @map("available_rooms")
+  totalSpots     Int @map("total_spots")
+  availableSpots Int @map("available_spots")
+
+  amenities   String[]
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  hostel   Hostel    @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  rooms    Room[]
+  bookings Booking[]
+
+  @@unique([hostelId, occupancyType])
+  @@index([hostelId])
+  @@map("room_types")
+}
+
+model Room {
+  id               String     @id @default(uuid())
+  roomTypeId       String     @map("room_type_id")
+  roomNumber       String     @map("room_number")
+  floor            Int        @default(1)
+  capacity         Int
+  currentOccupants Int        @default(0) @map("current_occupants")
+  status           RoomStatus @default(AVAILABLE)
+  notes            String?
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  roomType RoomType  @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+
+  @@unique([roomTypeId, roomNumber])
+  @@index([roomTypeId])
+  @@index([status])
+  @@map("rooms")
+}
+
+model SavedHostel {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")  
+  hostelId  String   @map("hostel_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User   @relation("StudentSavedHostels", fields: [userId], references: [id], onDelete: Cascade)  
+  hostel Hostel @relation("SavedByStudents", fields: [hostelId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, hostelId])  
+  @@index([userId])  
+  @@index([hostelId])
+  @@map("saved_hostels")
+}
+
+model Booking {
+  id               String @id @default(uuid())
+  bookingReference String @unique @map("booking_reference")
+
+  bookerId String @map("booker_id")
+
+  occupantName     String? @map("occupant_name")
+  occupantPhone    String? @map("occupant_phone")
+  occupantEmail    String? @map("occupant_email")
+  isBookingForSelf Boolean @default(true) @map("is_booking_for_self")
+
+  hostelId       String          @map("hostel_id")
+  roomTypeId     String          @map("room_type_id")
+  roomId         String?         @map("room_id")
+  bedNumber      Int?            @map("bed_number")
+  status         BookingStatus   @default(PENDING)
+  paymentPlan    PaymentPlan     @map("payment_plan")
+  semesterPeriod SemesterPeriod? @map("semester_period")
+  academicYear   String?         @map("academic_year")
+
+  baseAmount         Decimal @map("base_amount") @db.Decimal(10, 2)
+  platformFee        Decimal @default(0) @map("platform_fee") @db.Decimal(10, 2)
+  platformFeePercent Float   @default(2.0) @map("platform_fee_percent")
+  totalAmount        Decimal @map("total_amount") @db.Decimal(10, 2)
+
+  checkInDate          DateTime? @map("check_in_date")
+  checkOutDate         DateTime? @map("check_out_date")
+  expectedCheckOutDate DateTime? @map("expected_check_out_date")
+
+  notes        String?
+  cancelledAt  DateTime? @map("cancelled_at")
+  cancelReason String?   @map("cancel_reason")
+  confirmedAt  DateTime? @map("confirmed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  booker   User     @relation("StudentBookings", fields: [bookerId], references: [id]) 
+  hostel   Hostel   @relation(fields: [hostelId], references: [id])
+  roomType RoomType @relation(fields: [roomTypeId], references: [id])
+  room     Room?    @relation(fields: [roomId], references: [id])
+  payment  Payment?
+  review   Review?
+
+  @@index([roomId])
+  @@index([bookerId])
+  @@map("bookings")
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  paymentReference  String        @unique @map("payment_reference")
+  bookingId         String        @unique @map("booking_id")
+  amount            Decimal       @db.Decimal(10, 2)
+  method            PaymentMethod @default(MTN_MOMO)
+  status            PaymentStatus @default(PENDING)
+  momoTransactionId String?       @map("momo_transaction_id")
+  momoRequestId     String?       @map("momo_request_id")
+  payerPhone        String?       @map("payer_phone")
+  payerMessage      String?       @map("payer_message")
+  providerResponse  Json?         @map("provider_response")
+  paidAt            DateTime?     @map("paid_at")
+  failedAt          DateTime?     @map("failed_at")
+  failureReason     String?       @map("failure_reason")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  booking      Booking       @relation(fields: [bookingId], references: [id])
+  disbursement Disbursement?
+
+  @@map("payments")
+}
+
+model Disbursement {
+  id                    String             @id @default(uuid())
+  disbursementReference String             @unique @map("disbursement_reference")
+  paymentId             String             @unique @map("payment_id")
+  hostelId              String             @map("hostel_id")
+  managerId             String             @map("manager_id")
+  amount                Decimal            @db.Decimal(10, 2)
+  platformFee           Decimal            @default(0) @map("platform_fee") @db.Decimal(10, 2)
+  recipientPhone        String             @map("recipient_phone")
+  recipientName         String             @map("recipient_name")
+  status                DisbursementStatus @default(PENDING)
+  disbursedBy           String?            @map("disbursed_by")
+  disbursedAt           DateTime?          @map("disbursed_at")
+  failureReason         String?            @map("failure_reason")
+  notes                 String?
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+
+  @@map("disbursements")
+}
+
+model Complaint {
+  id         String              @id @default(uuid())
+  userId     String              @map("user_id")
+  hostelId   String?             @map("hostel_id")
+  subject    String
+  message    String
+  category   String?
+  status     ComplaintStatus     @default(OPEN)
+  visibility ComplaintVisibility @default(ADMIN_ONLY)
+  createdAt  DateTime            @default(now()) @map("created_at")
+  updatedAt  DateTime            @updatedAt @map("updated_at")
+
+  user      User                @relation("ComplaintAuthor", fields: [userId], references: [id])
+  hostel    Hostel?             @relation(fields: [hostelId], references: [id])
+  responses ComplaintResponse[]
+
+  @@map("complaints")
+}
+
+model ComplaintResponse {
+  id          String   @id @default(uuid())
+  complaintId String   @map("complaint_id")
+  responderId String   @map("responder_id")
+  message     String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  responder User      @relation("ResponseAuthor", fields: [responderId], references: [id])
+
+  @@map("complaint_responses")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  senderId  String?          @map("sender_id")
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false) @map("is_read")
+  metadata  Json?
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user   User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sender User? @relation("NotificationSender", fields: [senderId], references: [id])
+
+  @@map("notifications")
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")  
+  hostelId  String   @map("hostel_id")
+  bookingId String   @unique @map("booking_id")
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user    User    @relation("StudentReviews", fields: [userId], references: [id])  
+  hostel  Hostel  @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@unique([userId, hostelId, bookingId])  
+  @@index([hostelId])
+  @@map("reviews")
+}
+
+enum UserRole {
+  STUDENT
+  MANAGER
+  ADMIN
+  GUEST
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum HostelStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+  UNAVAILABLE
+}
+
+enum OccupancyType {
+  IN_1
+  IN_2
+  IN_3
+  IN_4
+}
+
+enum BookingStatus {
+  PENDING
+  PAID
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+  CHECKED_IN
+  CHECKED_OUT
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESSFUL
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  MTN_MOMO
+}
+
+enum PricingPeriod {
+  PER_SEMESTER
+  PER_YEAR
+}
+
+enum PaymentPlan {
+  FULL_YEAR
+  SEMESTER
+}
+
+enum SemesterPeriod {
+  FIRST_SEMESTER
+  SECOND_SEMESTER
+}
+
+enum DisbursementStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum ComplaintVisibility {
+  ADMIN_ONLY
+  ADMIN_AND_MANAGER
+}
+
+enum NotificationType {
+  BOOKING
+  PAYMENT
+  COMPLAINT
+  SYSTEM
+  HOSTEL_APPROVAL
+  MANAGER_VERIFICATION
+  DISBURSEMENT
+}
+
+enum RoomStatus {
+  AVAILABLE
+  PARTIALLY_OCCUPIED
+  FULLY_OCCUPIED
+  UNDER_MAINTENANCE
+  UNAVAILABLE
+}
+
+enum GuestType {
+  PARENT_GUARDIAN
+  UNIVERSITY_STAFF
+  PROSPECTIVE_STUDENT
+  VISITOR
+}
