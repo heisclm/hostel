@@ -1,7 +1,3 @@
-Establishing user intent: The user wants to transform the current, basic `README.md` into a professional, comprehensive version for a hostel management project called "HostelHub."
-
-The project consists of a Next.js frontend and an Express.js backend using Prisma with a PostgreSQL database. Key features include student and manager profiles, hostel listings, room booking with payment integration, and a complaint management system.
-
 # HostelHub - Professional Hostel Management System
 
 HostelHub is a comprehensive digital platform designed to streamline the hostel search, booking, and management process for students, hostel managers, and administrators.
